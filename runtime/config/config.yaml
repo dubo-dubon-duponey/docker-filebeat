@@ -1,0 +1,26 @@
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: true
+
+#filebeat.inputs:
+#- type: docker
+#  containers.ids: "*"
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+
+output.elasticsearch:
+  hosts: '${ELASTICSEARCH_HOSTS:elasticsearch:9200}'
+  username: '${ELASTICSEARCH_USERNAME:}'
+  password: '${ELASTICSEARCH_PASSWORD:}'
+
+#filebeat:
+#  inputs:
+#    -
+#      paths:
+#        - /var/log/syslog
+#        - /var/log/auth.log
+#      document_type: syslog
