@@ -18,7 +18,9 @@ WORKDIR     /build
 ARG         TARGETPLATFORM
 
 # Beats v7.4.0
-ARG         BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
+# ARG         BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
+# Beats v7.3.2
+ARG         BEATS_VERSION=5b046c5a97fe1e312f22d40a1f05365621aad621
 
 WORKDIR     /go/src/github.com/elastic/beats
 RUN         git clone https://github.com/elastic/beats.git .
@@ -27,6 +29,23 @@ RUN         git checkout $BEATS_VERSION
 WORKDIR     /go/src/github.com/elastic/beats/filebeat
 RUN         arch=${TARGETPLATFORM#*/} && \
             env GOOS=linux GOARCH=${arch%/*} make
+
+# Create stuff for the package
+RUN         apt-get install -y --no-install-recommends virtualenv=15.1.0+ds-2                             > /dev/null
+RUN         make update
+
+# From x-pack... licensing!
+WORKDIR     /go/src/github.com/elastic/beats/x-pack/filebeat
+RUN         arch=${TARGETPLATFORM#*/} && \
+            env GOOS=linux GOARCH=${arch%/*} make
+RUN         make update
+RUN         mv build/package/* build/ && rmdir build/package
+
+# XXX coredns plugin is broken right now, fix it
+RUN         sed -i'' -e "s,%{timestamp} ,,g" build/module/coredns/log/ingest/pipeline-plaintext.json
+RUN         sed -i'' -e "s,%{timestamp} ,,g" build/module/coredns/log/ingest/pipeline-json.json
+RUN         sed -i'' -e "s,  - ingest/pipeline-entry.json,,g" build/module/coredns/log/manifest.yml
+RUN         sed -i'' -e "s,  - ingest/pipeline-json.json,,g" build/module/coredns/log/manifest.yml
 
 #######################
 # Running image
@@ -47,19 +66,22 @@ ARG         BUILD_GID=$BUILD_UID
 
 ARG         CONFIG=/config
 ARG         CERTS=/certs
+ARG         DATA=/data
 
 # Get relevant bits from builder
-COPY        --from=builder /etc/ssl/certs                             /etc/ssl/certs
-COPY        --from=builder /go/src/github.com/elastic/beats/filebeat/filebeat /bin/filebeat
+COPY        --from=builder /etc/ssl/certs                                             /etc/ssl/certs
+COPY        --from=builder /go/src/github.com/elastic/beats/filebeat/filebeat         /bin/filebeat
+COPY        --from=builder /go/src/github.com/elastic/beats/x-pack/filebeat/build     config
 
 # Get relevant local files into cwd
 COPY        runtime .
 
 # Set links
-RUN         mkdir $CONFIG && mkdir $CERTS && \
-            chown $BUILD_UID:$BUILD_GID $CONFIG && chown $BUILD_UID:$BUILD_GID $CERTS && chown -R $BUILD_UID:$BUILD_GID . && \
-            ln -sf /dev/stdout access.log && \
-            ln -sf /dev/stderr error.log
+RUN         mkdir $CONFIG && mkdir $DATA && mkdir $CERTS && \
+            chown $BUILD_UID:$BUILD_GID $CONFIG && chown $BUILD_UID:$BUILD_GID $DATA && chown $BUILD_UID:$BUILD_GID $CERTS && chown -R $BUILD_UID:$BUILD_GID . && \
+            chown -R root:root config && \
+            ln -sf /dev/stdout out.log && \
+            ln -sf /dev/stderr err.log
 
 # Create user
 RUN         addgroup --system --gid $BUILD_GID $BUILD_GROUP && \
@@ -73,13 +95,14 @@ USER        $BUILD_USER
 
 ENV         OVERWRITE_CONFIG=""
 
-ENV         ELASTICSEARCH_HOSTS="[\"192.168.1.8:9200\"]"
 ENV         KIBANA_HOST="192.168.1.8:5601"
+ENV         ELASTICSEARCH_HOSTS="[\"192.168.1.8:9200\"]"
 ENV         ELASTICSEARCH_USERNAME=""
 ENV         ELASTICSEARCH_PASSWORD=""
 ENV         MODULES="coredns"
 
 VOLUME      $CONFIG
+VOLUME      $DATA
 VOLUME      $CERTS
 
 ENTRYPOINT  ["./entrypoint.sh"]
