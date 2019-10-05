@@ -106,3 +106,4 @@ VOLUME      $DATA
 VOLUME      $CERTS
 
 ENTRYPOINT  ["./entrypoint.sh"]
+# env ELASTIC_CONTAINER=true
