@@ -44,8 +44,9 @@ RUN         mv build/package/* build/ && rmdir build/package
 # XXX coredns plugin is broken right now, fix it
 RUN         sed -i'' -e "s,%{timestamp} ,,g" build/module/coredns/log/ingest/pipeline-plaintext.json
 RUN         sed -i'' -e "s,%{timestamp} ,,g" build/module/coredns/log/ingest/pipeline-json.json
-RUN         sed -i'' -e "s,  - ingest/pipeline-entry.json,,g" build/module/coredns/log/manifest.yml
-RUN         sed -i'' -e "s,  - ingest/pipeline-json.json,,g" build/module/coredns/log/manifest.yml
+RUN         sed -i'' -e 's,"ignore_failure" : true,"if": "ctx.timestamp != null",g' build/module/coredns/log/ingest/pipeline-entry.json
+RUN         sed -i'' -e 's,8d890080-413c-11e9-8548-ab7fbe04f038,filebeat-*,g' build/kibana/7/dashboard/Coredns-Overview-Dashboard.json
+RUN         sed -i'' -e 's/{\\"params\\": {}, \\"type\\": \\"count\\", \\"enabled\\": true, \\"id\\": \\"1\\", \\"schema\\": \\"metric\\"}/{\\"params\\": {\\"field\\": \\"coredns.id\\", \\"customLabel\\": \\"Unique Queries\\"}, \\"type\\": \\"cardinality\\", \\"enabled\\": true, \\"id\\": \\"1\\", \\"schema\\": \\"metric\\"}/g' build/kibana/7/dashboard/Coredns-Overview-Dashboard.json
 
 #######################
 # Running image
