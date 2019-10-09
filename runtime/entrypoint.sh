@@ -39,12 +39,10 @@ MODULES="${MODULES:-}"
 KIBANA_HOST="${KIBANA_HOST:-}"
 ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 
-# Symlink logs
-ln -s /dev/stdout "$LOGS"/filebeat
-
 # Configure command line arguments
-args+=(-c /config/filebeat.yml --path.data /data --path.config /config --path.home /config --path.logs /logs)
-args+=(-e "-strict.perms=false" -E "output.elasticsearch.hosts=\"$ELASTICSEARCH_HOSTS\"")
+# XXX it's unclear why most logs go to stdout naturally, while SOME (duplicate, apparently) go to path.logs - either way...
+args+=(-c /config/filebeat.yml --path.data /data --path.config /config --path.home /config --path.logs /dev/stdout)
+args+=(-e "-strict.perms=false" -E "output.elasticsearch.hosts=$ELASTICSEARCH_HOSTS")
 
 # Enable modules
 for i in ${MODULES}; do
