@@ -102,6 +102,6 @@ ENV         KIBANA_HOST="192.168.1.8:5601"
 ENV         ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
 ENV         ELASTICSEARCH_USERNAME=""
 ENV         ELASTICSEARCH_PASSWORD=""
-ENV         MODULES="coredns"
+ENV         MODULES="system coredns"
 
 ENTRYPOINT  ["./entrypoint.sh"]

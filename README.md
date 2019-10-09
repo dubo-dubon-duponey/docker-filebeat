@@ -16,10 +16,11 @@ A [Filebeat](https://www.elastic.co/products/beats/filebeat) container meant to 
 docker run -d \
     --volume /var/lib/docker/containers:/var/lib/docker/containers:ro \
     --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+    --volume /var/log/syslog:/var/log/syslog:ro \
+    --volume /var/log/auth.log:/var/log/auth.log:ro \
     --user root \
     --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
     --env KIBANA_HOST="kibana:5601" \
-    --env MODULES="coredns" \
     --cap-drop ALL \
     dubodubonduponey/filebeat:v1
 ```
@@ -57,6 +58,7 @@ Besides ELASTICSEARCH_HOSTS, KIBANA_HOST and MODULES, you may additionally use t
 
  * ELASTICSEARCH_USERNAME
  * ELASTICSEARCH_PASSWORD
+ * MODULES (by default: "coredns system")
 
 The following container paths may be mounted as volume if intend on modifying filebeat configuration or dataset.
 
