@@ -1,16 +1,7 @@
 filebeat.config:
   modules:
     path: ${path.config}/modules.d/*.yml
-    reload.enabled: false
-
-#filebeat.inputs:
-#- type: docker
-#  containers.ids: "*"
-
-filebeat.autodiscover:
-  providers:
-    - type: docker
-      hints.enabled: true
+    reload.enabled: true
 
 processors:
   - add_cloud_metadata: ~
@@ -21,6 +12,19 @@ output.elasticsearch:
   username: '${ELASTICSEARCH_USERNAME:}'
   password: '${ELASTICSEARCH_PASSWORD:}'
 
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+
+#      templates:
+#        - condition:
+#            contains:
+#              docker.container.image: '*'
+#          config:
+#            - type: container
+#              paths:
+#                - /var/lib/docker/containers/${data.docker.container.id}/${data.docker.container.id}-json.log
 
 #filebeat:
 #  inputs:
