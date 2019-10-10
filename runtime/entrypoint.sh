@@ -5,6 +5,14 @@ OVERWRITE_CONFIG=${OVERWRITE_CONFIG:-}
 OVERWRITE_DATA=${OVERWRITE_DATA:-}
 OVERWRITE_CERTS=${OVERWRITE_CERTS:-}
 
+config::writable(){
+  local folder="$1"
+  [ -w "$folder" ] || {
+    >&2 printf "$folder is not writable. Check your mount permissions.\n"
+    exit 1
+  }
+}
+
 config::setup(){
   local folder="$1"
   local overwrite="$2"
@@ -30,11 +38,13 @@ config::setup(){
   fi
 }
 
-config::setup "/config"  "$OVERWRITE_CONFIG"
-config::setup "/data"    "$OVERWRITE_DATA"
-config::setup "/certs"   "$OVERWRITE_CERTS"
+config:writable /certs
+config:writable /data
+config::setup   /config  "$OVERWRITE_CONFIG"
+config::setup   /data    "$OVERWRITE_DATA"
+config::setup   /certs   "$OVERWRITE_CERTS"
 
-# Filebeat specifics
+# Filebeat
 MODULES="${MODULES:-}"
 KIBANA_HOST="${KIBANA_HOST:-}"
 ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
