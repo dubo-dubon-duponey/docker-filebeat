@@ -1,13 +1,26 @@
 # What
 
-A [Filebeat](https://www.elastic.co/products/beats/filebeat) container meant to collect docker logs (with a working coredns module).
+A docker image for [Filebeat](https://www.elastic.co/products/beats/filebeat) meant to collect docker logs (with a working coredns module).
 
 ## Image features
+
+ * hardened:
+    * runs with no `cap`
+    * ~~running as a non-root user~~ (unless you are running docker rootless)
+    * read-only container
+ * multi-architecture:
+    * linux/amd64
+    * linux/arm64
+    * linux/arm/v7
+    * linux/arm/v6
+ * lightweight
+    * based on `debian:buster-slim`
+    * simple entrypoint script
+    * multi-stage build with no installed dependencies for the runtime image
 
  * multi-architecture (linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6)
  * based on `debian:buster-slim`
  * no `cap` needed
- * ~~running as a non-root user~~ (unless you are running docker rootless)
  * lightweight
 
 ## Run
@@ -22,6 +35,7 @@ docker run -d \
     --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
     --env KIBANA_HOST="kibana:5601" \
     --cap-drop ALL \
+    --read-only \
     dubodubonduponey/filebeat:v1
 ```
 
