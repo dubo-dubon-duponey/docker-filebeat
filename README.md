@@ -8,7 +8,7 @@ A [Filebeat](https://www.elastic.co/products/beats/filebeat) container meant to 
  * based on `debian:buster-slim`
  * no `cap` needed
  * ~~running as a non-root user~~ (unless you are running docker rootless)
- * lightweight (~40MB)
+ * lightweight
 
 ## Run
 
