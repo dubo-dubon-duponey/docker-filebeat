@@ -1,27 +1,26 @@
 # What
 
-A docker image for [Filebeat](https://www.elastic.co/products/beats/filebeat) meant to collect docker logs (with a working coredns module).
+Docker image for "FileBeat" agent.
+
+This is based on [Filebeat](https://www.elastic.co/products/beats/filebeat).
+
+Meant to collect docker containers logs on a single node (with a working coredns module).
 
 ## Image features
 
- * hardened:
-    * runs with no `cap`
-    * ~~running as a non-root user~~ (unless you are running docker rootless)
-    * read-only container
  * multi-architecture:
-    * linux/amd64
-    * linux/arm64
-    * linux/arm/v7
-    * linux/arm/v6
+    * [✓] linux/amd64
+    * [✓] linux/arm64
+    * [✓] linux/arm/v7
+    * [✓] linux/arm/v6
+ * hardened:
+    * [✓] image runs read-only
+    * [✓] image runs with no capabilities
+    * [ ] ~process runs as a non-root user, disabled login, no shell~ runs as root (see below), unless you are running docker rootless
  * lightweight
-    * based on `debian:buster-slim`
-    * simple entrypoint script
-    * multi-stage build with no installed dependencies for the runtime image
-
- * multi-architecture (linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6)
- * based on `debian:buster-slim`
- * no `cap` needed
- * lightweight
+    * [✓] based on `debian:buster-slim`
+    * [✓] simple entrypoint script
+    * [✓] multi-stage build with no installed dependencies for the runtime image
 
 ## Run
 
@@ -31,28 +30,49 @@ docker run -d \
     --volume /var/run/docker.sock:/var/run/docker.sock:ro \
     --volume /var/log/syslog:/var/log/syslog:ro \
     --volume /var/log/auth.log:/var/log/auth.log:ro \
-    --user root \
     --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
     --env KIBANA_HOST="kibana:5601" \
+    --user root \
     --cap-drop ALL \
     --read-only \
     dubodubonduponey/filebeat:v1
 ```
 
+You do need to expose port 443 publicly from your docker host so that LetsEncrypt can issue your certificate.
+
 ## Notes
 
-### Permissions
+### Custom configuration file
 
-The in-container user needs to be able to read both `/var/run/docker.sock` and 
-`/var/lib/docker/containers` to be useful.
+If you want to customize your FileBeat config, mount a volume into `/config` on the container and customize `/config/filebeat.yml`.
 
-Unless you run docker rootless, that unfortunately means the container must run with `--user root` (although no CAP are required).
+```bash
+chown -R 1000:nogroup "[host_path_for_config]"
 
-### Configuration
+docker run -d \
+    --volume [host_path_for_config]:/config:ro \
+    --volume /var/lib/docker/containers:/var/lib/docker/containers:ro \
+    --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+    --volume /var/log/syslog:/var/log/syslog:ro \
+    --volume /var/log/auth.log:/var/log/auth.log:ro \
+    --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
+    --env KIBANA_HOST="kibana:5601" \
+    --user root \
+    --cap-drop ALL \
+    --read-only \
+    dubodubonduponey/filebeat:v1
+```
 
-A default Filebeat config file will be created in `/config/filebeat.yml` (if you didn't mount an existing file) along with other necessary filebeat module files.
+### Networking
 
-This configuration enables "hints" on docker containers.
+This container doesn't expose any port and only needs outgress to the kibana and elastic hosts, and the networking mode is irrelevant.
+
+
+### Configuration reference
+
+The default setup uses a CoreDNS config file in `/config/filebeat.yml`.
+
+This configuration enables "hints" on docker containers, and enables the `coredns` and `system` modules.
 
 You can then simply "label" the appropriate container to hint to the right module to use.
 
@@ -64,28 +84,32 @@ co.elastic.logs/module=coredns
 co.elastic.logs/fileset=log
 ```
 
-### Advanced configuration
+ * the `/config` folder holds the configuration file and modules specific configuration
+ * the `/data` folder is used to store FileBeat state
 
 #### Runtime
 
-Besides ELASTICSEARCH_HOSTS, KIBANA_HOST and MODULES, you may additionally use the following environment variables:
+You may specify the following environment variables at runtime:
 
+ * ELASTICSEARCH_HOSTS
+ * KIBANA_HOST
  * ELASTICSEARCH_USERNAME
  * ELASTICSEARCH_PASSWORD
  * MODULES (by default: "coredns system")
 
-The following container paths may be mounted as volume if intend on modifying filebeat configuration or dataset.
-
- * /config: contains all configuration and module files for filebeat
- * /data: filebeat will store state in that location
-
-Additionally, OVERWRITE_CONFIG controls whether an existing /config will be overwritten or not (default is not). Similarly, OVERWRITE_DATA.
-
-Finally, any additional arguments when running the image will get fed to the `filebeat` binary.
+Finally, any additional arguments provided when running the image will get fed to the `coredns` binary.
 
 #### Build time
 
-You can also rebuild the image using the following arguments if you want to map the in-container user to a different UID (default 1000):
+You can rebuild the image using the following build arguments:
 
  * BUILD_UID
- * BUILD_GID
+ 
+So to control which user-id to assign to the in-container user.
+
+### On permissions
+
+The in-container user needs to be able to read `/var/run/docker.sock` and 
+`/var/lib/docker/containers` to be useful (optionally `/var/log/*` a well).
+
+Unless you run docker rootless, that unfortunately means the container must run with `--user root` - or at least UID 0 - although no CAP are required.
