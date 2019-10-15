@@ -16,11 +16,15 @@ Meant to collect docker containers logs on a single node (with a working coredns
  * hardened:
     * [✓] image runs read-only
     * [✓] image runs with no capabilities
-    * [ ] ~process runs as a non-root user, disabled login, no shell~ runs as root (see below), unless you are running docker rootless
+    * [  ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless
  * lightweight
     * [✓] based on `debian:buster-slim`
     * [✓] simple entrypoint script
     * [✓] multi-stage build with no installed dependencies for the runtime image
+ * observable
+    * [✓] healthcheck
+    * [n.a.] ~~prometheus endpoint~~
+    * [✓] log to stdout
 
 ## Run
 
@@ -32,6 +36,8 @@ docker run -d \
     --volume /var/log/auth.log:/var/log/auth.log:ro \
     --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
     --env KIBANA_HOST="kibana:5601" \
+    --env HEALTHCHECK_DOMAIN="elastic" \
+    --env HEALTHCHECK_PORT="9200" \
     --user root \
     --cap-drop ALL \
     --read-only \
@@ -50,22 +56,27 @@ If you want to customize your FileBeat config, mount a volume into `/config` on 
 chown -R 1000:nogroup "[host_path_for_config]"
 
 docker run -d \
-    --volume [host_path_for_config]:/config:ro \
+    --volume [host_path_for_config]:/config:rw \
     --volume /var/lib/docker/containers:/var/lib/docker/containers:ro \
     --volume /var/run/docker.sock:/var/run/docker.sock:ro \
     --volume /var/log/syslog:/var/log/syslog:ro \
     --volume /var/log/auth.log:/var/log/auth.log:ro \
     --env ELASTICSEARCH_HOSTS="[\"elastic:9200\"]" \
     --env KIBANA_HOST="kibana:5601" \
+    --env HEALTHCHECK_DOMAIN="elastic" \
+    --env HEALTHCHECK_PORT="9200" \
     --user root \
     --cap-drop ALL \
     --read-only \
     dubodubonduponey/filebeat:v1
 ```
 
+Note that `/config` has to be writable in order for enabling modules to work.
+If this is not acceptable, set the `MODULES=""` and make sure the modules you want are enabled otherwise.
+
 ### Networking
 
-This container doesn't expose any port and only needs outgress to the kibana and elastic hosts, and the networking mode is irrelevant.
+This container doesn't expose any port and only needs egress to the Kibana and Elastic hosts (and the networking mode is irrelevant).
 
 
 ### Configuration reference
@@ -76,7 +87,7 @@ This configuration enables "hints" on docker containers, and enables the `coredn
 
 You can then simply "label" the appropriate container to hint to the right module to use.
 
-For coredns specifically, you should start your coredns container with the following labels:
+For CoreDNS specifically, you should start your CoreDNS container with the following labels:
 
 ```
 co.elastic.logs/enabled=true

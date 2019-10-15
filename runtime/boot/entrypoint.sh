@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 
-# Generic config management
-config::writable(){
-  local folder="$1"
-  [ -w "$folder" ] || {
-    >&2 printf "%s is not writable. Check your mount permissions.\n" "$folder"
-    exit 1
-  }
+# Ensure the certs folder is writable
+[ -w "/certs" ] || {
+  >&2 printf "/certs is not writable. Check your mount permissions.\n"
+  exit 1
 }
 
-# Ensure the certs and data folders are writable
-config::writable /certs
-config::writable /data
+# Ensure the data folder is writable
+[ -w "/data" ] || {
+  >&2 printf "/data is not writable. Check your mount permissions.\n"
+  exit 1
+}
 
 # Specific to this image
 MODULES="${MODULES:-}"
