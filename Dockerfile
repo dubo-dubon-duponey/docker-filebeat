@@ -64,6 +64,9 @@ FROM          dubodubonduponey/base:runtime
 # Get relevant bits from builder
 COPY          --from=builder --chown=$BUILD_UID:0 /dist .
 
+# Fix permissions
+RUN           find /config -type d -exec chmod -R 770 {} \; && find /config -type f -exec chmod -R 660 {} \;
+
 ENV           KIBANA_HOST="192.168.1.8:5601"
 ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
 ENV           ELASTICSEARCH_USERNAME=""

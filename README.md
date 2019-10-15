@@ -56,7 +56,7 @@ If you want to customize your FileBeat config, mount a volume into `/config` on 
 chown -R 1000:nogroup "[host_path_for_config]"
 
 docker run -d \
-    --volume [host_path_for_config]:/config:rw \
+    --volume [host_path_for_config]:/config/filebeat.yml \
     --volume /var/lib/docker/containers:/var/lib/docker/containers:ro \
     --volume /var/run/docker.sock:/var/run/docker.sock:ro \
     --volume /var/log/syslog:/var/log/syslog:ro \
