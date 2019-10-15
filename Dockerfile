@@ -31,7 +31,7 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 RUN           arch="${TARGETPLATFORM#*/}"; \
               now=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); \
               commit=$(git rev-parse HEAD); \
-              go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o dist/filebeat ./filebeat
+              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o dist/filebeat ./filebeat
 
 # From x-pack... licensing?
 WORKDIR       $GOPATH/src/github.com/elastic/beats/x-pack/filebeat
@@ -62,7 +62,7 @@ RUN           chmod 555 ./*
 FROM          dubodubonduponey/base:runtime
 
 # Get relevant bits from builder
-COPY          --from=builder /dist .
+COPY          --from=builder --chown=$BUILD_UID:0 /dist .
 
 ENV           KIBANA_HOST="192.168.1.8:5601"
 ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
