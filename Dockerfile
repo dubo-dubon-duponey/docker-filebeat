@@ -4,10 +4,6 @@
 ##########################
 FROM          --platform=$BUILDPLATFORM dubodubonduponey/base:builder                                   AS builder
 
-WORKDIR       /build
-
-ARG           TARGETPLATFORM
-
 # Beats v7.3.2
 # ARG           BEATS_VERSION=5b046c5a97fe1e312f22d40a1f05365621aad621
 # Beats v7.4.0
