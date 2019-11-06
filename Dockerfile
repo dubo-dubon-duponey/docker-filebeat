@@ -33,6 +33,7 @@ WORKDIR       $GOPATH/src/github.com/elastic/beats/filebeat
 RUN           make update
 
 # Build filebeat
+WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           arch="${TARGETPLATFORM#*/}"; \
               now=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); \
               commit=$(git rev-parse HEAD); \
