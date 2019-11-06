@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+set -o errexit -o errtrace -o functrace -o nounset -o pipefail
+
+# Specific to this image
+MODULES="${MODULES:-}"
+KIBANA_HOST="${KIBANA_HOST:-}"
+ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 
 # Ensure the certs folder is writable
 [ -w "/certs" ] || {
@@ -11,11 +17,6 @@
   >&2 printf "/data is not writable. Check your mount permissions.\n"
   exit 1
 }
-
-# Specific to this image
-MODULES="${MODULES:-}"
-KIBANA_HOST="${KIBANA_HOST:-}"
-ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 
 # Configure command line arguments
 # XXX it's unclear why most logs go to stdout naturally, while SOME (duplicate, apparently) go to path.logs - either way...
