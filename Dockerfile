@@ -29,7 +29,8 @@ RUN           git clone https://github.com/elastic/beats.git .
 RUN           git checkout $BEATS_VERSION
 
 # Install mage et al
-RUN           cd filebeat && make update
+WORKDIR       $GOPATH/src/github.com/elastic/beats/filebeat
+RUN           make update
 
 # Build filebeat
 RUN           arch="${TARGETPLATFORM#*/}"; \
