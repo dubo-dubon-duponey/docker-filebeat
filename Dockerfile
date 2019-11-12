@@ -9,9 +9,7 @@ WORKDIR       $GOPATH/src/github.com/dubo-dubon-duponey/healthcheckers
 RUN           git clone git://github.com/dubo-dubon-duponey/healthcheckers .
 RUN           git checkout $HEALTH_VER
 RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" -o /dist/bin/http-health ./cmd/http
-
-RUN           chmod 555 /dist/bin/*
+              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
 # Builder custom
@@ -37,7 +35,7 @@ WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           arch="${TARGETPLATFORM#*/}"; \
               now=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); \
               commit=$(git rev-parse HEAD); \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/bin/filebeat ./filebeat
+              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/boot/bin/filebeat ./filebeat
 
 # From x-pack... licensing?
 WORKDIR       $GOPATH/src/github.com/elastic/beats/x-pack/filebeat
@@ -56,8 +54,12 @@ RUN           sed -i'' -e 's/{\\"params\\": {}, \\"type\\": \\"count\\", \\"enab
 
 # Move them to final destination
 RUN           mv build/package/* build && rmdir build/package && mkdir -p /dist/config && mv build/* /dist/config
+# Fix permissions
+RUN           find /dist/config -type d -exec chmod -R 777 {} \; && find /dist/config -type f -exec chmod -R 666 {} \;
 
-RUN           chmod 555 /dist/bin/*
+COPY          --from=builder-healthcheck /dist/boot/bin           /dist/boot/bin
+
+RUN           chmod 555 /dist/boot/bin/*
 
 #######################
 # Running image
@@ -66,10 +68,6 @@ FROM          dubodubonduponey/base:runtime
 
 # Get relevant bits from builder
 COPY          --from=builder --chown=$BUILD_UID:root /dist .
-COPY          --from=builder-healthcheck  /dist/bin/http-health ./bin/
-
-# Fix permissions
-RUN           find /config -type d -exec chmod -R 777 {} \; && find /config -type f -exec chmod -R 666 {} \;
 
 ENV           KIBANA_HOST="192.168.1.8:5601"
 ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
@@ -77,11 +75,11 @@ ENV           ELASTICSEARCH_USERNAME=""
 ENV           ELASTICSEARCH_PASSWORD=""
 ENV           MODULES="system coredns"
 
-ENV           HEALTHCHECK_URL="http://192.168.1.8:9200"
-
 # Default volumes for data and certs, since these are expected to be writable
 VOLUME        /config
 VOLUME        /data
 VOLUME        /certs
+
+ENV           HEALTHCHECK_URL="http://192.168.1.8:9200"
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
