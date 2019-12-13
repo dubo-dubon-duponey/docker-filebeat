@@ -20,7 +20,9 @@ FROM          --platform=$BUILDPLATFORM dubodubonduponey/base:builder           
 # Beats v7.3.2
 # ARG           BEATS_VERSION=5b046c5a97fe1e312f22d40a1f05365621aad621
 # Beats v7.4.0
-ARG           BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
+# ARG           BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
+# Beats v7.5.0
+ARG           BEATS_VERSION=6d0d0ae079e5cb1d4f224801ac6df926dfb1594c
 
 WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           git clone https://github.com/elastic/beats.git .
@@ -80,6 +82,7 @@ VOLUME        /config
 VOLUME        /data
 VOLUME        /certs
 
+# TODO have a better parametric defaultt for this
 ENV           HEALTHCHECK_URL="http://192.168.1.8:9200"
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
