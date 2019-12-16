@@ -16,15 +16,15 @@ Meant to collect docker containers logs on a single node (with a working coredns
  * hardened:
     * [x] image runs read-only
     * [x] image runs with no capabilities
-    * [  ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless
+    * [ ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless
  * lightweight
-    * [x] based on `debian:buster-slim`
+    * [x] based on our slim [Debian buster version](https://github.com/dubo-dubon-duponey/docker-debian)
     * [x] simple entrypoint script
     * [x] multi-stage build with no installed dependencies for the runtime image
  * observable
     * [x] healthcheck
     * [x] log to stdout
-    * [n.a.] ~~prometheus endpoint~~
+    * [ ] ~~prometheus endpoint~~ not applicable
 
 ## Run
 
