@@ -100,11 +100,11 @@ co.elastic.logs/fileset=log
 
 You may specify the following environment variables at runtime:
 
- * ELASTICSEARCH_HOSTS
- * KIBANA_HOST
- * ELASTICSEARCH_USERNAME
- * ELASTICSEARCH_PASSWORD
- * MODULES (by default: "coredns system")
+ * `ELASTICSEARCH_HOSTS`
+ * `KIBANA_HOST`
+ * `ELASTICSEARCH_USERNAME`
+ * `ELASTICSEARCH_PASSWORD`
+ * `MODULES` (by default: `coredns system`)
 
 Finally, any additional arguments provided when running the image will get fed to the `coredns` binary.
 
@@ -112,7 +112,7 @@ Finally, any additional arguments provided when running the image will get fed t
 
 You can rebuild the image using the following build arguments:
 
- * BUILD_UID
+ * `BUILD_UID`
  
 So to control which user-id to assign to the in-container user.
 
