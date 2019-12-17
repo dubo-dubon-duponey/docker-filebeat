@@ -9,22 +9,22 @@ Meant to collect docker containers logs on a single node (with a working coredns
 ## Image features
 
  * multi-architecture:
-    * [✓] linux/amd64
-    * [✓] linux/arm64
-    * [✓] linux/arm/v7
-    * [✓] linux/arm/v6
+    * [x] linux/amd64
+    * [x] linux/arm64
+    * [x] linux/arm/v7
+    * [x] linux/arm/v6
  * hardened:
-    * [✓] image runs read-only
-    * [✓] image runs with no capabilities
-    * [  ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless
+    * [x] image runs read-only
+    * [x] image runs with no capabilities
+    * [ ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless
  * lightweight
-    * [✓] based on `debian:buster-slim`
-    * [✓] simple entrypoint script
-    * [✓] multi-stage build with no installed dependencies for the runtime image
+    * [x] based on our slim [Debian buster version](https://github.com/dubo-dubon-duponey/docker-debian)
+    * [x] simple entrypoint script
+    * [x] multi-stage build with no installed dependencies for the runtime image
  * observable
-    * [✓] healthcheck
-    * [n.a.] ~~prometheus endpoint~~
-    * [✓] log to stdout
+    * [x] healthcheck
+    * [x] log to stdout
+    * [ ] ~~prometheus endpoint~~ not applicable
 
 ## Run
 
@@ -43,8 +43,6 @@ docker run -d \
     --read-only \
     dubodubonduponey/filebeat:v1
 ```
-
-You do need to expose port 443 publicly from your docker host so that LetsEncrypt can issue your certificate.
 
 ## Notes
 
@@ -102,11 +100,11 @@ co.elastic.logs/fileset=log
 
 You may specify the following environment variables at runtime:
 
- * ELASTICSEARCH_HOSTS
- * KIBANA_HOST
- * ELASTICSEARCH_USERNAME
- * ELASTICSEARCH_PASSWORD
- * MODULES (by default: "coredns system")
+ * `ELASTICSEARCH_HOSTS`
+ * `KIBANA_HOST`
+ * `ELASTICSEARCH_USERNAME`
+ * `ELASTICSEARCH_PASSWORD`
+ * `MODULES` (by default: `coredns system`)
 
 Finally, any additional arguments provided when running the image will get fed to the `coredns` binary.
 
@@ -114,7 +112,7 @@ Finally, any additional arguments provided when running the image will get fed t
 
 You can rebuild the image using the following build arguments:
 
- * BUILD_UID
+ * `BUILD_UID`
  
 So to control which user-id to assign to the in-container user.
 
