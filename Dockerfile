@@ -54,8 +54,8 @@ RUN           make update
 # XXX coredns plugin is broken right now, fix it
 RUN           sed -i'' -e "s,%{timestamp} ,,g" build/package/module/coredns/log/ingest/pipeline-plaintext.yml
 RUN           sed -i'' -e "s,%{timestamp} ,,g" build/package/module/coredns/log/ingest/pipeline-json.yml
-RUN           sed -i'' -e 's,"ignore_failure" : true,"if": "ctx.timestamp != null",g' build/package/module/coredns/log/ingest/pipeline-entry.yml
-#RUN cat build/kibana/7/dashboard/Coredns-Overview-Dashboard.json; exit 1
+RUN           sed -i'' -e 's,ignore_failure: true,if: ctx.timestamp != null,g' build/package/module/coredns/log/ingest/pipeline-entry.yml
+# XXX apparently that part was fixed with 7.5.0
 # RUN           sed -i'' -e 's,8d890080-413c-11e9-8548-ab7fbe04f038,filebeat-*,g' build/kibana/7/dashboard/Coredns-Overview-Dashboard.json
 # RUN           sed -i'' -e 's/{\\"params\\": {}, \\"type\\": \\"count\\", \\"enabled\\": true, \\"id\\": \\"1\\", \\"schema\\": \\"metric\\"}/{\\"params\\": {\\"field\\": \\"coredns.id\\", \\"customLabel\\": \\"Unique Queries\\"}, \\"type\\": \\"cardinality\\", \\"enabled\\": true, \\"id\\": \\"1\\", \\"schema\\": \\"metric\\"}/g' build/kibana/7/dashboard/Coredns-Overview-Dashboard.json
 
@@ -63,6 +63,10 @@ RUN           sed -i'' -e 's,"ignore_failure" : true,"if": "ctx.timestamp != nul
 RUN           mv build/package/* build && rmdir build/package && mkdir -p /dist/config && mv build/* /dist/config
 # Fix permissions
 RUN           find /dist/config -type d -exec chmod -R 777 {} \; && find /dist/config -type f -exec chmod -R 666 {} \;
+
+# Enable modules
+# RUN           for i in /dist/config/modules.d/*; do mv "$i" "${i%.*}"; done
+RUN           for i in coredns elasticsearch kibana system; do mv "/dist/config/modules.d/$i.yml.disabled" "/dist/config/modules.d/$i.yml"; done
 
 COPY          --from=builder-healthcheck /dist/boot/bin           /dist/boot/bin
 
@@ -84,11 +88,11 @@ ENV           ELASTICSEARCH_PASSWORD=""
 ENV           MODULES="system coredns"
 
 # Default volumes for data and certs, since these are expected to be writable
-VOLUME        /config
+# VOLUME        /config
 VOLUME        /data
 VOLUME        /certs
 
-# TODO have a better parametric defaultt for this
+# TODO have a better parametric default for this
 ENV           HEALTHCHECK_URL="http://192.168.1.8:9200"
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
