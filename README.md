@@ -108,17 +108,13 @@ You may specify the following environment variables at runtime:
 
 Finally, any additional arguments provided when running the image will get fed to the `coredns` binary.
 
-#### Build time
-
-You can rebuild the image using the following build arguments:
-
- * `BUILD_UID`
- 
-So to control which user-id to assign to the in-container user.
-
 ### On permissions
 
 The in-container user needs to be able to read `/var/run/docker.sock` and 
 `/var/lib/docker/containers` to be useful (optionally `/var/log/*` a well).
 
 Unless you run docker rootless, that unfortunately means the container must run with `--user root` - or at least UID 0 - although no CAP are required.
+
+## Moar?
+
+See [DEVELOP.md](DEVELOP.md)
