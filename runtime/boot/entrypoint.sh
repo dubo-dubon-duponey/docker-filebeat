@@ -2,7 +2,7 @@
 set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 
 # Specific to this image
-MODULES="${MODULES:-}"
+# MODULES="${MODULES:-}"
 KIBANA_HOST="${KIBANA_HOST:-}"
 ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 
@@ -24,9 +24,10 @@ args+=(-c /config/filebeat.yml --path.data /data --path.config /config --path.ho
 args+=(-e "-strict.perms=false" -E "output.elasticsearch.hosts=$ELASTICSEARCH_HOSTS")
 
 # Enable modules
-for i in ${MODULES}; do
-  filebeat modules enable "${args[@]}" "$i"
-done
+# XXX Removing support for now - just too annoying to have /config writable
+#for i in ${MODULES}; do
+#  filebeat modules enable "${args[@]}" "$i"
+#done
 
 # Initial setup
 # XXX uber dirty - repeat until elastic is up
