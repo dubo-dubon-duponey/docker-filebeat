@@ -36,7 +36,9 @@ RUN           make update
 
 # Build filebeat
 WORKDIR       $GOPATH/src/github.com/elastic/beats
-RUN           arch="${TARGETPLATFORM#*/}"; \
+# hadolint ignore=DL4006
+RUN           set -eu; \
+              arch="${TARGETPLATFORM#*/}"; \
               commit="$(git describe --dirty --always)"; \
               now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
               env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/boot/bin/filebeat ./filebeat
