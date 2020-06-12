@@ -1,8 +1,9 @@
+ARG           BUILDER_BASE=dubodubonduponey/base:builder
+ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
+
 #######################
 # Extra builder for healthchecker
 #######################
-ARG           BUILDER_BASE=dubodubonduponey/base:builder
-ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
 
@@ -13,7 +14,8 @@ WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
 RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -mod=vendor -v -ldflags "-s -w" -o /dist/boot/bin/http-health ./cmd/http
+              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+                -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
 # Builder custom
@@ -21,12 +23,8 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
-# Beats v7.3.2
-# ARG           BEATS_VERSION=5b046c5a97fe1e312f22d40a1f05365621aad621
-# Beats v7.4.0
-# ARG           BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
-# Beats v7.5.0
-ARG           BEATS_VERSION=6d0d0ae079e5cb1d4f224801ac6df926dfb1594c
+# Beats v7.5.2
+ARG           BEATS_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
 
 WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           git clone https://github.com/elastic/beats.git .
@@ -39,8 +37,8 @@ RUN           make update
 # Build filebeat
 WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           arch="${TARGETPLATFORM#*/}"; \
-              now=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); \
-              commit=$(git rev-parse HEAD); \
+              commit="$(git describe --dirty --always)"; \
+              now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
               env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/boot/bin/filebeat ./filebeat
 
 # From x-pack... licensing?

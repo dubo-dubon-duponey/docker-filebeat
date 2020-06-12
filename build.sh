@@ -6,5 +6,8 @@ export TITLE="Elastic Filebeat"
 export DESCRIPTION="A dubo image for Filebeat"
 export IMAGE_NAME="filebeat"
 
+# Filebeat is broken right now wrt gomodules
+export GO111MODULE=auto
+
 # shellcheck source=/dev/null
 . "$(cd "$(dirname "${BASH_SOURCE[0]:-$PWD}")" 2>/dev/null 1>&2 && pwd)/helpers.sh"
