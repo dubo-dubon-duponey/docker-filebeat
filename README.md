@@ -12,7 +12,7 @@ Meant to collect docker containers logs on a single node (with a working coredns
     * [x] linux/amd64
     * [x] linux/arm64
     * [x] linux/arm/v7
-    * [x] linux/arm/v6
+    * [ ] linux/arm/v6 (should build, disabled by default)
  * hardened:
     * [x] image runs read-only
     * [x] image runs with no capabilities
