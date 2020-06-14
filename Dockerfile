@@ -23,7 +23,7 @@ RUN           arch="${TARGETPLATFORM#*/}"; \
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
-RUN           apt-get update -qq; apt-get install -qq -y python3-venv=3.7.3-1
+RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
 
 # Beats v7.5.2
 #ARG           BEATS_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
