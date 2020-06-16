@@ -41,7 +41,7 @@ docker run -d \
     --user root \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/filebeat:v1
+    dubodubonduponey/filebeat
 ```
 
 ## Notes
@@ -66,7 +66,7 @@ docker run -d \
     --user root \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/filebeat:v1
+    dubodubonduponey/filebeat
 ```
 
 Note that `/config` has to be writable in order for enabling modules to work.
