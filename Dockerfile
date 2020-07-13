@@ -86,6 +86,8 @@ FROM          $RUNTIME_BASE
 COPY          --from=builder --chown=$BUILD_UID:root /dist .
 
 ENV           KIBANA_HOST="192.168.1.8:5601"
+ENV           KIBANA_USERNAME=""
+ENV           KIBANA_PASSWORD=""
 ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
 ENV           ELASTICSEARCH_USERNAME=""
 ENV           ELASTICSEARCH_PASSWORD=""
