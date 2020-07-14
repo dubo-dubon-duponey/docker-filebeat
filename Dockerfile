@@ -1,32 +1,34 @@
+ARG           BUILDER_BASE=dubodubonduponey/base:builder
+ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
+
 #######################
 # Extra builder for healthchecker
 #######################
-ARG           BUILDER_BASE=dubodubonduponey/base:builder
-ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
 
-ARG           HEALTH_VER=51ebf8ca3d255e0c846307bf72740f731e6210c3
+ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
+ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
 
-WORKDIR       $GOPATH/src/github.com/dubo-dubon-duponey/healthcheckers
-RUN           git clone git://github.com/dubo-dubon-duponey/healthcheckers .
-RUN           git checkout $HEALTH_VER
+WORKDIR       $GOPATH/src/$GIT_REPO
+RUN           git clone git://$GIT_REPO .
+RUN           git checkout $GIT_VERSION
 RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" -o /dist/boot/bin/http-health ./cmd/http
+              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+                -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
 # Builder custom
-# Custom steps required to build this specific image
 ##########################
 # hadolint ignore=DL3006
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
-# Beats v7.3.2
-# ARG           BEATS_VERSION=5b046c5a97fe1e312f22d40a1f05365621aad621
-# Beats v7.4.0
-# ARG           BEATS_VERSION=f940c36884d3749901a9c99bea5463a6030cdd9c
-# Beats v7.5.0
-ARG           BEATS_VERSION=6d0d0ae079e5cb1d4f224801ac6df926dfb1594c
+RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
+
+# Beats v7.5.2
+#ARG           BEATS_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
+# Beats v7.7.1
+ARG           BEATS_VERSION=932b273e8940575e15f10390882be205bad29e1f
 
 WORKDIR       $GOPATH/src/github.com/elastic/beats
 RUN           git clone https://github.com/elastic/beats.git .
@@ -38,9 +40,11 @@ RUN           make update
 
 # Build filebeat
 WORKDIR       $GOPATH/src/github.com/elastic/beats
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              now=$(date -u '+%Y-%m-%dT%H:%M:%SZ'); \
-              commit=$(git rev-parse HEAD); \
+# hadolint ignore=DL4006
+RUN           set -eu; \
+              arch="${TARGETPLATFORM#*/}"; \
+              commit="$(git describe --dirty --always)"; \
+              now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
               env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/boot/bin/filebeat ./filebeat
 
 # From x-pack... licensing?
@@ -82,6 +86,8 @@ FROM          $RUNTIME_BASE
 COPY          --from=builder --chown=$BUILD_UID:root /dist .
 
 ENV           KIBANA_HOST="192.168.1.8:5601"
+ENV           KIBANA_USERNAME=""
+ENV           KIBANA_PASSWORD=""
 ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
 ENV           ELASTICSEARCH_USERNAME=""
 ENV           ELASTICSEARCH_PASSWORD=""

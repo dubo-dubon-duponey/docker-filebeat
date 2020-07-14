@@ -4,6 +4,8 @@ set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 # Specific to this image
 # MODULES="${MODULES:-}"
 KIBANA_HOST="${KIBANA_HOST:-}"
+KIBANA_USERNAME="${KIBANA_USERNAME:-}"
+KIBANA_PASSWORD="${KIBANA_PASSWORD:-}"
 ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 
 # Ensure the certs folder is writable
@@ -23,6 +25,10 @@ ELASTICSEARCH_HOSTS="${ELASTICSEARCH_HOSTS:-}"
 args+=(-c /config/filebeat.yml --path.data /data --path.config /config --path.home /config --path.logs /dev/stdout)
 args+=(-e "-strict.perms=false" -E "output.elasticsearch.hosts=$ELASTICSEARCH_HOSTS")
 
+sargs=(-E "setup.kibana.host=$KIBANA_HOST")
+[ ! "$KIBANA_USERNAME" ] || sargs+=(-E "setup.kibana.username=$KIBANA_USERNAME")
+[ ! "$KIBANA_PASSWORD" ] || sargs+=(-E "setup.kibana.password=$KIBANA_PASSWORD")
+
 # Enable modules
 # XXX Removing support for now - just too annoying to have /config writable
 #for i in ${MODULES}; do
@@ -30,14 +36,15 @@ args+=(-e "-strict.perms=false" -E "output.elasticsearch.hosts=$ELASTICSEARCH_HO
 #done
 
 # Initial setup
-# XXX uber dirty - repeat until elastic is up
+# XXX uber dirty - repeat until elastic / kibana is up
+# Also, this is... questionable...
 n=0
 while true; do
-  if filebeat setup "${args[@]}" -E setup.kibana.host="$KIBANA_HOST"; then
+  if filebeat setup "${args[@]}" "${sargs[@]}"; then
     break
   fi
   n=$((n + 1))
-  >&2 printf "Failed to contact elastic. Will wait and retry. This is try number %s\n" "$n"
+  >&2 printf "Failed to contact elastic or kibana. Will wait and retry. This is try number %s\n" "$n"
   sleep 5
 done
 
