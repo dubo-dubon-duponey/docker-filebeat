@@ -13,8 +13,8 @@ ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
                 -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
@@ -32,7 +32,6 @@ RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends
 # 7.8.1
 ARG           GIT_VERSION=94f7632be5d56a7928595da79f4b829ffe123744
 ARG           GIT_REPO=github.com/elastic/beats
-ARG           GO_LDFLAGS=""
 
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
@@ -45,14 +44,15 @@ RUN           make update
 # Build filebeat
 WORKDIR       $GOPATH/src/$GIT_REPO
 
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION" -o /dist/boot/bin/filebeat ./filebeat
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION" \
+                -o /dist/boot/bin/filebeat ./filebeat
 
 # From x-pack... licensing?
 WORKDIR       $GOPATH/src/$GIT_REPO/x-pack/filebeat
 
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" make
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" make
 
 RUN           make update
 

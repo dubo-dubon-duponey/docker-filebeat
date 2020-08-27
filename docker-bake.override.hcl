@@ -1,7 +1,3 @@
-variable "REGISTRY" {
-  default = "docker.io"
-}
-
 # Filebeat is broken right now wrt gomodules
 variable "GO111MODULE" {
   default = "auto"
@@ -15,6 +11,6 @@ target "default" {
     GO111MODULE = "${GO111MODULE}"
   }
   tags = [
-    "${REGISTRY}/dubodubonduponey/filebeat",
+    "dubodubonduponey/filebeat",
   ]
 }
