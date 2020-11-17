@@ -4,7 +4,7 @@ ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
 #######################
 # Extra builder for healthchecker
 #######################
-# hadolint ignore=DL3006
+# hadolint ignore=DL3006,DL3029
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
@@ -20,7 +20,7 @@ RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's
 ##########################
 # Builder custom
 ##########################
-# hadolint ignore=DL3006
+# hadolint ignore=DL3006,DL3029
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
 RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
@@ -30,7 +30,9 @@ RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends
 # Beats v7.7.1
 #ARG           GIT_VERSION=932b273e8940575e15f10390882be205bad29e1f
 # 7.8.1
-ARG           GIT_VERSION=94f7632be5d56a7928595da79f4b829ffe123744
+#ARG           GIT_VERSION=94f7632be5d56a7928595da79f4b829ffe123744
+# 7.10.0
+ARG           GIT_VERSION=1428d58cf2ed945441fb2ed03961cafa9e4ad3eb
 ARG           GIT_REPO=github.com/elastic/beats
 
 WORKDIR       $GOPATH/src/$GIT_REPO
