@@ -4,7 +4,7 @@ ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
 #######################
 # Extra builder for healthchecker
 #######################
-# hadolint ignore=DL3006
+# hadolint ignore=DL3006,DL3029
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
@@ -13,45 +13,48 @@ ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w" \
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
                 -o /dist/boot/bin/http-health ./cmd/http
 
 ##########################
 # Builder custom
 ##########################
-# hadolint ignore=DL3006
+# hadolint ignore=DL3006,DL3029
 FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
 
 RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
 
 # Beats v7.5.2
-#ARG           BEATS_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
+#ARG           GIT_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
 # Beats v7.7.1
-ARG           BEATS_VERSION=932b273e8940575e15f10390882be205bad29e1f
+#ARG           GIT_VERSION=932b273e8940575e15f10390882be205bad29e1f
+# 7.8.1
+#ARG           GIT_VERSION=94f7632be5d56a7928595da79f4b829ffe123744
+# 7.10.0
+ARG           GIT_VERSION=1428d58cf2ed945441fb2ed03961cafa9e4ad3eb
+ARG           GIT_REPO=github.com/elastic/beats
 
-WORKDIR       $GOPATH/src/github.com/elastic/beats
-RUN           git clone https://github.com/elastic/beats.git .
-RUN           git checkout $BEATS_VERSION
+WORKDIR       $GOPATH/src/$GIT_REPO
+RUN           git clone git://$GIT_REPO .
+RUN           git checkout $GIT_VERSION
 
 # Install mage et al
-WORKDIR       $GOPATH/src/github.com/elastic/beats/filebeat
+WORKDIR       $GOPATH/src/$GIT_REPO/filebeat
 RUN           make update
 
 # Build filebeat
-WORKDIR       $GOPATH/src/github.com/elastic/beats
+WORKDIR       $GOPATH/src/$GIT_REPO
+
 # hadolint ignore=DL4006
-RUN           set -eu; \
-              arch="${TARGETPLATFORM#*/}"; \
-              commit="$(git describe --dirty --always)"; \
-              now="$(date +%Y-%m-%dT%T%z | sed -E 's/([0-9]{2})([0-9]{2})$/\1:\2/')"; \
-              env GOOS=linux GOARCH="${arch%/*}" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$now -X github.com/elastic/beats/libbeat/version.commit=$commit" -o /dist/boot/bin/filebeat ./filebeat
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION" \
+                -o /dist/boot/bin/filebeat ./filebeat
 
 # From x-pack... licensing?
-WORKDIR       $GOPATH/src/github.com/elastic/beats/x-pack/filebeat
+WORKDIR       $GOPATH/src/$GIT_REPO/x-pack/filebeat
 
-RUN           arch="${TARGETPLATFORM#*/}"; \
-              env GOOS=linux GOARCH="${arch%/*}" make
+# hadolint ignore=DL4006
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" make
 
 RUN           make update
 
