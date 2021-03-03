@@ -1,5 +1,5 @@
-ARG           BUILDER_BASE=dubodubonduponey/base:builder
-ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
+ARG           BUILDER_BASE=dubodubonduponey/base@sha256:b51f084380bc1bd2b665840317b6f19ccc844ee2fc7e700bf8633d95deba2819
+ARG           RUNTIME_BASE=dubodubonduponey/base@sha256:d28e8eed3e87e8dc5afdd56367d3cf2da12a0003d064b5c62405afbe4725ee99
 
 #######################
 # Extra builder for healthchecker
@@ -9,34 +9,34 @@ FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                           
 
 ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
 ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
+ARG           BUILD_TARGET=./cmd/http
+ARG           BUILD_OUTPUT=http-health
+ARG           BUILD_FLAGS="-s -w"
 
 WORKDIR       $GOPATH/src/$GIT_REPO
 RUN           git clone git://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
 # hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
-                -o /dist/boot/bin/http-health ./cmd/http
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v \
+                -ldflags "$BUILD_FLAGS" -o /dist/boot/bin/"$BUILD_OUTPUT" "$BUILD_TARGET"
 
 ##########################
 # Builder custom
 ##########################
 # hadolint ignore=DL3006,DL3029
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder
+FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-main
 
 RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
 
-# Beats v7.5.2
-#ARG           GIT_VERSION=a9c141434cd6b25d7a74a9c770be6b70643dc767
-# Beats v7.7.1
-#ARG           GIT_VERSION=932b273e8940575e15f10390882be205bad29e1f
-# 7.8.1
-#ARG           GIT_VERSION=94f7632be5d56a7928595da79f4b829ffe123744
-# 7.10.0
-ARG           GIT_VERSION=1428d58cf2ed945441fb2ed03961cafa9e4ad3eb
+# This is 2.3.0
 ARG           GIT_REPO=github.com/elastic/beats
+ARG           GIT_VERSION=9b2fecb327a29fe8d0477074d8a2e42a3fabbc4b
+ARG           BUILD_TARGET=./filebeat
+ARG           BUILD_OUTPUT=filebeat
+ARG           BUILD_FLAGS="-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION"
 
 WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone git://$GIT_REPO .
+RUN           git clone https://$GIT_REPO .
 RUN           git checkout $GIT_VERSION
 
 # Install mage et al
@@ -45,10 +45,9 @@ RUN           make update
 
 # Build filebeat
 WORKDIR       $GOPATH/src/$GIT_REPO
-
 # hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION" \
-                -o /dist/boot/bin/filebeat ./filebeat
+RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v \
+                -ldflags "$BUILD_FLAGS" -o /dist/boot/bin/"$BUILD_OUTPUT" "$BUILD_TARGET"
 
 # From x-pack... licensing?
 WORKDIR       $GOPATH/src/$GIT_REPO/x-pack/filebeat
@@ -75,9 +74,20 @@ RUN           find /dist/config -type d -exec chmod -R 777 {} \; && find /dist/c
 # RUN           for i in /dist/config/modules.d/*; do mv "$i" "${i%.*}"; done
 RUN           for i in coredns elasticsearch kibana system; do mv "/dist/config/modules.d/$i.yml.disabled" "/dist/config/modules.d/$i.yml"; done
 
-COPY          --from=builder-healthcheck /dist/boot/bin           /dist/boot/bin
 
-RUN           chmod 555 /dist/boot/bin/*
+
+#######################
+# Builder assembly
+#######################
+# hadolint ignore=DL3006
+FROM          $BUILDER_BASE                                                                                             AS builder
+
+COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
+COPY          --from=builder-main /dist /dist
+
+RUN           chmod 555 /dist/boot/bin/*; \
+              epoch="$(date --date "$BUILD_CREATED" +%s)"; \
+              find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
 #######################
 # Running image
@@ -85,23 +95,19 @@ RUN           chmod 555 /dist/boot/bin/*
 # hadolint ignore=DL3006
 FROM          $RUNTIME_BASE
 
-# Get relevant bits from builder
+# Bring in stuff from main
 COPY          --from=builder --chown=$BUILD_UID:root /dist .
 
-ENV           KIBANA_HOST="192.168.1.8:5601"
+ENV           KIBANA_HOST="https://kibana.local"
 ENV           KIBANA_USERNAME=""
 ENV           KIBANA_PASSWORD=""
-ENV           ELASTICSEARCH_HOSTS="[192.168.1.8:9200]"
+ENV           ELASTICSEARCH_HOSTS="[https://elastic.local:4443]"
 ENV           ELASTICSEARCH_USERNAME=""
 ENV           ELASTICSEARCH_PASSWORD=""
 ENV           MODULES="system coredns"
 
-# Default volumes for data and certs, since these are expected to be writable
-# VOLUME        /config
+# Default volumes for data
 VOLUME        /data
-VOLUME        /certs
 
-# TODO have a better parametric default for this
-ENV           HEALTHCHECK_URL="http://192.168.1.8:9200"
-
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
+ENV           HEALTHCHECK_URL="https://elastic.local:4443/_cluster/health"
+HEALTHCHECK   --interval=120s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
