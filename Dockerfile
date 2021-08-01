@@ -2,6 +2,9 @@ ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
 ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:f1c46316c38cc1ca54fd53b54b73797b35ba65ee727beea1a5ed08d0ad7e8ccf
 ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:9f5b20d392e1a1082799b3befddca68cee2636c72c502aa7652d160896f85b36
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:f1e25694fe933c7970773cb323975bb5c995fa91d0c1a148f4f1c131cbc5872c
+
+FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 #######################
 # Fetcher
@@ -49,6 +52,7 @@ RUN           --mount=type=secret,uid=100,id=CA \
               apt-get update -qq; apt-get install -qq --no-install-recommends python3-venv=3.9.2-3
 
 # Install mage et al - careful here, we are looking for build tools running on the host platform, not to cross-build (yet)
+# hadolint ignore=DL3003,SC2164
 RUN           cd filebeat; make update
 # beats-dashboards?
 
