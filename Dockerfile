@@ -1,59 +1,83 @@
-ARG           BUILDER_BASE=dubodubonduponey/base@sha256:b51f084380bc1bd2b665840317b6f19ccc844ee2fc7e700bf8633d95deba2819
-ARG           RUNTIME_BASE=dubodubonduponey/base@sha256:d28e8eed3e87e8dc5afdd56367d3cf2da12a0003d064b5c62405afbe4725ee99
+ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
+
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:f1c46316c38cc1ca54fd53b54b73797b35ba65ee727beea1a5ed08d0ad7e8ccf
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:9f5b20d392e1a1082799b3befddca68cee2636c72c502aa7652d160896f85b36
 
 #######################
-# Extra builder for healthchecker
+# Fetcher
 #######################
-# hadolint ignore=DL3006,DL3029
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
 
-ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
-ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
-ARG           BUILD_TARGET=./cmd/http
-ARG           BUILD_OUTPUT=http-health
-ARG           BUILD_FLAGS="-s -w"
+ENV           GIT_REPO=github.com/elastic/beats
+ENV           GIT_VERSION=7.13.4
+ENV           GIT_COMMIT=1907c246c8b0d23ae4027699c44bf3fbef57f4a4
 
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone git://$GIT_REPO .
-RUN           git checkout $GIT_VERSION
-# hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v \
-                -ldflags "$BUILD_FLAGS" -o /dist/boot/bin/"$BUILD_OUTPUT" "$BUILD_TARGET"
+ENV           WITH_BUILD_SOURCE=./filebeat
+ENV           WITH_BUILD_OUTPUT=filebeat
+# XXX date created here should be the commit date of the git repo
+ENV           WITH_LDFLAGS="-X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$GIT_COMMIT"
+# XXX CGO / avahi?
 
-##########################
-# Builder custom
-##########################
-# hadolint ignore=DL3006,DL3029
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-main
+RUN           git clone --recurse-submodules git://"$GIT_REPO" .
+RUN           git checkout "$GIT_COMMIT"
+RUN           --mount=type=secret,id=CA \
+              --mount=type=secret,id=NETRC \
+              [[ "${GOFLAGS:-}" == *-mod=vendor* ]] || go mod download
 
-RUN           apt-get update -qq; apt-get install -qq -y --no-install-recommends python3-venv=3.7.3-1
+#######################
+# Main builder
+#######################
+# XXX --platform=$BUILDPLATFORM  not a x-build yet
+FROM          fetcher-main                                                                                              AS builder-main
 
-# This is 2.3.0
-ARG           GIT_REPO=github.com/elastic/beats
-ARG           GIT_VERSION=9b2fecb327a29fe8d0477074d8a2e42a3fabbc4b
-ARG           BUILD_TARGET=./filebeat
-ARG           BUILD_OUTPUT=filebeat
-ARG           BUILD_FLAGS="-s -w -X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$BUILD_VERSION"
+ARG           TARGETARCH
+ARG           TARGETOS
+ARG           TARGETVARIANT
+ENV           GOOS=$TARGETOS
+ENV           GOARCH=$TARGETARCH
 
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone https://$GIT_REPO .
-RUN           git checkout $GIT_VERSION
+ENV           CGO_CFLAGS="${CFLAGS:-} ${ENABLE_PIE:+-fPIE}"
+ENV           GOFLAGS="-trimpath ${ENABLE_PIE:+-buildmode=pie} ${GOFLAGS:-}"
 
-# Install mage et al
-WORKDIR       $GOPATH/src/$GIT_REPO/filebeat
-RUN           make update
+RUN           --mount=type=secret,uid=100,id=CA \
+              --mount=type=secret,uid=100,id=CERTIFICATE \
+              --mount=type=secret,uid=100,id=KEY \
+              --mount=type=secret,uid=100,id=GPG.gpg \
+              --mount=type=secret,id=NETRC \
+              --mount=type=secret,id=APT_SOURCES \
+              --mount=type=secret,id=APT_CONFIG \
+              apt-get update -qq; apt-get install -qq --no-install-recommends python3-venv=3.9.2-3
 
-# Build filebeat
-WORKDIR       $GOPATH/src/$GIT_REPO
-# hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v \
-                -ldflags "$BUILD_FLAGS" -o /dist/boot/bin/"$BUILD_OUTPUT" "$BUILD_TARGET"
+# Install mage et al - careful here, we are looking for build tools running on the host platform, not to cross-build (yet)
+RUN           cd filebeat; make update
+# beats-dashboards?
+
+# Important cases being handled:
+# - cannot compile statically with PIE but on amd64 and arm64
+# - cannot compile fully statically with NETCGO
+RUN           export GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)"; \
+              [ "${CGO_ENABLED:-}" != 1 ] || { \
+                eval "$(dpkg-architecture -A "$(echo "$TARGETARCH$TARGETVARIANT" | sed -e "s/armv6/armel/" -e "s/armv7/armhf/" -e "s/ppc64le/ppc64el/" -e "s/386/i386/")")"; \
+                export PKG_CONFIG="${DEB_TARGET_GNU_TYPE}-pkg-config"; \
+                export AR="${DEB_TARGET_GNU_TYPE}-ar"; \
+                export CC="${DEB_TARGET_GNU_TYPE}-gcc"; \
+                export CXX="${DEB_TARGET_GNU_TYPE}-g++"; \
+                [ ! "${ENABLE_STATIC:-}" ] || { \
+                  [ ! "${WITH_CGO_NET:-}" ] || { \
+                    ENABLE_STATIC=; \
+                    LDFLAGS="${LDFLAGS:-} -static-libgcc -static-libstdc++"; \
+                  }; \
+                  [ "$GOARCH" == "amd64" ] || [ "$GOARCH" == "arm64" ] || [ "${ENABLE_PIE:-}" != true ] || ENABLE_STATIC=; \
+                }; \
+                WITH_LDFLAGS="${WITH_LDFLAGS:-} -linkmode=external -extld="$CC" -extldflags \"${LDFLAGS:-} ${ENABLE_STATIC:+-static}${ENABLE_PIE:+-pie}\""; \
+                WITH_TAGS="${WITH_TAGS:-} cgo ${ENABLE_STATIC:+static static_build}"; \
+              }; \
+              go build -ldflags "-s -w -v ${WITH_LDFLAGS:-}" -tags "${WITH_TAGS:-} net${WITH_CGO_NET:+c}go osusergo" -o /dist/boot/bin/"$WITH_BUILD_OUTPUT" "$WITH_BUILD_SOURCE"
 
 # From x-pack... licensing?
-WORKDIR       $GOPATH/src/$GIT_REPO/x-pack/filebeat
+WORKDIR       /source/x-pack/filebeat
 
-# hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" make
+RUN           make
 
 RUN           make update
 
@@ -74,29 +98,26 @@ RUN           find /dist/config -type d -exec chmod -R 777 {} \; && find /dist/c
 # RUN           for i in /dist/config/modules.d/*; do mv "$i" "${i%.*}"; done
 RUN           for i in coredns elasticsearch kibana system; do mv "/dist/config/modules.d/$i.yml.disabled" "/dist/config/modules.d/$i.yml"; done
 
-
-
 #######################
-# Builder assembly
+# Builder assembly, XXX should be auditor
 #######################
-# hadolint ignore=DL3006
-FROM          $BUILDER_BASE                                                                                             AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS builder
 
-COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
-COPY          --from=builder-main /dist /dist
+COPY          --from=builder-main   /dist           /dist
+
+COPY          --from=builder-tools  /boot/bin/http-health    /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
-              find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
+              find /dist/boot -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
 #######################
 # Running image
 #######################
-# hadolint ignore=DL3006
-FROM          $RUNTIME_BASE
+FROM          $FROM_REGISTRY/$FROM_IMAGE_RUNTIME
 
 # Bring in stuff from main
-COPY          --from=builder --chown=$BUILD_UID:root /dist .
+COPY          --from=builder --chown=$BUILD_UID:root /dist /
 
 ENV           KIBANA_HOST="https://kibana.local"
 ENV           KIBANA_USERNAME=""
@@ -108,6 +129,9 @@ ENV           MODULES="system coredns"
 
 # Default volumes for data
 VOLUME        /data
+
+# Filebeat write its registry / state
+VOLUME        /tmp
 
 ENV           HEALTHCHECK_URL="https://elastic.local:4443/_cluster/health"
 HEALTHCHECK   --interval=120s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1

@@ -7,10 +7,22 @@ processors:
   - add_cloud_metadata: ~
   - add_docker_metadata: ~
 
-output.elasticsearch:
-  hosts: '${ELASTICSEARCH_HOSTS:https://elastic.local:4443}'
-  username: '${ELASTICSEARCH_USERNAME:}'
-  password: '${ELASTICSEARCH_PASSWORD:}'
+output:
+  elasticsearch:
+    hosts: '${ELASTICSEARCH_HOSTS:https://elastic.local:4443}'
+    username: '${ELASTICSEARCH_USERNAME:}'
+    password: '${ELASTICSEARCH_PASSWORD:}'
+#    ssl:
+#      enabled: true
+#      certificate_authorities:
+#    - |
+#      certificate:
+#    - |
+#      key:
+#    - |
+#      supported_protocols: "TLSv1.3"
+# key_passphrase:
+# XXX possibly reduce cipher_suites: https://www.elastic.co/guide/en/beats/filebeat/current/configuration-ssl.html#supported-protocols
 
 setup:
   kibana:
