@@ -14,14 +14,14 @@ Meant to collect docker containers logs on a single node (with a working coredns
   * [x] linux/arm64
   * [x] linux/arm/v7
   * [x] linux/arm/v6
-  * [x] linux/ppc64
+  * [x] linux/ppc64le
   * [x] linux/s390x
 * hardened:
   * [x] image runs read-only
-  * [x] image runs with no capabilities (unless you want it on port 443)
+  * [x] image runs with no capabilities (unless you want it on a privileged port)
   * [ ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless or do some voodoo with userns
 * lightweight
-  * [x] based on our slim [Debian bullseye version (2021-07-01)](https://github.com/dubo-dubon-duponey/docker-debian)
+  * [x] based on our slim [Debian Bullseye](https://github.com/dubo-dubon-duponey/docker-debian)
   * [x] simple entrypoint script
   * [x] multi-stage build with no installed dependencies for the runtime image
 * observable
