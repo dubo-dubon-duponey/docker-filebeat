@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 
-[ -w /data ] || {
-  printf >&2 "/data is not writable. Check your mount permissions.\n"
+[ -w /tmp ] || {
+  printf >&2 "/tmp is not writable. Check your mount permissions.\n"
   exit 1
 }
 
@@ -20,7 +20,7 @@ LOG_LEVEL="$(printf "%s" "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')"
 # Configure command line arguments
 # XXX it's unclear why most logs go to stdout naturally, while SOME (duplicate, apparently) go to path.logs - either way...
 args=(-c /config/filebeat/main.yml)
-args+=(--path.data /data --path.config /config --path.home /config --path.logs /dev/stdout)
+args+=(--path.data /tmp --path.config /config --path.home /config --path.logs /dev/stdout)
 args+=(-e "-strict.perms=false")
 args+=(-E logging.level="$LOG_LEVEL")
 

@@ -1,8 +1,9 @@
 ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-07-01@sha256:f1c46316c38cc1ca54fd53b54b73797b35ba65ee727beea1a5ed08d0ad7e8ccf
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-07-01@sha256:9f5b20d392e1a1082799b3befddca68cee2636c72c502aa7652d160896f85b36
-ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-07-01@sha256:f1e25694fe933c7970773cb323975bb5c995fa91d0c1a148f4f1c131cbc5872c
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-08-01@sha256:a49ab8a07a2da61eee63b7d9d33b091df190317aefb91203ad0ac41af18d5236
+ARG           FROM_IMAGE_AUDITOR=base:auditor-bullseye-2021-08-01@sha256:607d8b42af53ebbeb0064a5fd41895ab34ec670a810a704dbf53a2beb3ab769d
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-08-01@sha256:3fdb7b859e3fea12a7604ff4ae7e577628784ac1f6ea0d5609de65a4b26e5b3c
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-08-01@sha256:9e54b76442e4d8e1cad76acc3c982a5623b59f395b594af15bef6b489862ceac
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
@@ -11,9 +12,13 @@ FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                  
 #######################
 FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
 
-ENV           GIT_REPO=github.com/elastic/beats
-ENV           GIT_VERSION=7.13.4
-ENV           GIT_COMMIT=1907c246c8b0d23ae4027699c44bf3fbef57f4a4
+ARG           GIT_REPO=github.com/elastic/beats
+#ARG           GIT_VERSION=7.13.4
+#ARG           GIT_COMMIT=1907c246c8b0d23ae4027699c44bf3fbef57f4a4
+ARG           GIT_VERSION=7.14.0
+# XXX unfortunately busted and has been for some time, because of some BS around a dep (kardianos/service)
+#ARG           GIT_COMMIT=e127fc31fc6c00fdf8649808f9421d8f8c28b5db
+ARG           GIT_COMMIT=70cab1df99e3f05397e3ed69ba47608dc103a985
 
 ENV           WITH_BUILD_SOURCE=./filebeat
 ENV           WITH_BUILD_OUTPUT=filebeat
@@ -21,11 +26,23 @@ ENV           WITH_BUILD_OUTPUT=filebeat
 ENV           WITH_LDFLAGS="-X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$GIT_COMMIT"
 # XXX CGO / avahi?
 
-RUN           git clone --recurse-submodules git://"$GIT_REPO" .
-RUN           git checkout "$GIT_COMMIT"
+RUN           git clone --recurse-submodules git://"$GIT_REPO" .; git checkout "$GIT_COMMIT"
 RUN           --mount=type=secret,id=CA \
               --mount=type=secret,id=NETRC \
               [[ "${GOFLAGS:-}" == *-mod=vendor* ]] || go mod download
+
+RUN           --mount=type=secret,uid=100,id=CA \
+              --mount=type=secret,uid=100,id=CERTIFICATE \
+              --mount=type=secret,uid=100,id=KEY \
+              --mount=type=secret,uid=100,id=GPG.gpg \
+              --mount=type=secret,id=NETRC \
+              --mount=type=secret,id=APT_SOURCES \
+              --mount=type=secret,id=APT_CONFIG \
+              apt-get update -qq; apt-get install -qq --no-install-recommends python3-venv=3.9.2-3
+
+# Install mage - requires network as this stuff does go get
+# hadolint ignore=DL3003,SC2164
+RUN           cd filebeat; make update; command mage || { echo mage build fail; exit 1; }
 
 #######################
 # Main builder
@@ -42,18 +59,6 @@ ENV           GOARCH=$TARGETARCH
 ENV           CGO_CFLAGS="${CFLAGS:-} ${ENABLE_PIE:+-fPIE}"
 ENV           GOFLAGS="-trimpath ${ENABLE_PIE:+-buildmode=pie} ${GOFLAGS:-}"
 
-RUN           --mount=type=secret,uid=100,id=CA \
-              --mount=type=secret,uid=100,id=CERTIFICATE \
-              --mount=type=secret,uid=100,id=KEY \
-              --mount=type=secret,uid=100,id=GPG.gpg \
-              --mount=type=secret,id=NETRC \
-              --mount=type=secret,id=APT_SOURCES \
-              --mount=type=secret,id=APT_CONFIG \
-              apt-get update -qq; apt-get install -qq --no-install-recommends python3-venv=3.9.2-3
-
-# Install mage et al - careful here, we are looking for build tools running on the host platform, not to cross-build (yet)
-# hadolint ignore=DL3003,SC2164
-RUN           cd filebeat; make update
 # beats-dashboards?
 
 # Important cases being handled:
@@ -61,7 +66,7 @@ RUN           cd filebeat; make update
 # - cannot compile fully statically with NETCGO
 RUN           export GOARM="$(printf "%s" "$TARGETVARIANT" | tr -d v)"; \
               [ "${CGO_ENABLED:-}" != 1 ] || { \
-                eval "$(dpkg-architecture -A "$(echo "$TARGETARCH$TARGETVARIANT" | sed -e "s/armv6/armel/" -e "s/armv7/armhf/" -e "s/ppc64le/ppc64el/" -e "s/386/i386/")")"; \
+                eval "$(dpkg-architecture -A "$(echo "$TARGETARCH$TARGETVARIANT" | sed -e "s/^armv6$/armel/" -e "s/^armv7$/armhf/" -e "s/^ppc64le$/ppc64el/" -e "s/^386$/i386/")")"; \
                 export PKG_CONFIG="${DEB_TARGET_GNU_TYPE}-pkg-config"; \
                 export AR="${DEB_TARGET_GNU_TYPE}-ar"; \
                 export CC="${DEB_TARGET_GNU_TYPE}-gcc"; \
@@ -105,7 +110,7 @@ RUN           for i in coredns elasticsearch kibana system; do mv "/dist/config/
 #######################
 # Builder assembly, XXX should be auditor
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_AUDITOR                                              AS builder
 
 COPY          --from=builder-main   /dist           /dist
 
@@ -131,8 +136,10 @@ ENV           ELASTICSEARCH_USERNAME=""
 ENV           ELASTICSEARCH_PASSWORD=""
 ENV           MODULES="system coredns"
 
+# XXX not completely clear if the moe to ramdisks will negatively impact
+# loggers UUID / registration?
 # Default volumes for data
-VOLUME        /data
+# VOLUME        /data
 
 # Filebeat write its registry / state
 VOLUME        /tmp
