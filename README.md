@@ -18,7 +18,7 @@ Meant to collect docker containers logs on a single node (with a working coredns
   * [x] linux/s390x
 * hardened:
   * [x] image runs read-only
-  * [x] image runs with no capabilities (unless you want it on a privileged port)
+  * [x] image runs with no capabilities but NET_BIND_SERVICE
   * [ ] ~~process runs as a non-root user, disabled login, no shell~~ runs as root (see below), unless you are running docker rootless or do some voodoo with userns
 * lightweight
   * [x] based on our slim [Debian Bullseye](https://github.com/dubo-dubon-duponey/docker-debian)
@@ -45,7 +45,7 @@ docker run -d \
     --user root \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/filebeat
+    ghcr.io/dubo-dubon-duponey/filebeat
 ```
 
 ## Notes
@@ -70,7 +70,7 @@ docker run -d \
     --user root \
     --cap-drop ALL \
     --read-only \
-    dubodubonduponey/filebeat
+    ghcr.io/dubo-dubon-duponey/filebeat
 ```
 
 Note that `/config` has to be writable in order for enabling modules to work.
