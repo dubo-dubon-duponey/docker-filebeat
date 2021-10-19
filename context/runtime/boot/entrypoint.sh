@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 
-[ -w /tmp ] || {
-  printf >&2 "/tmp is not writable. Check your mount permissions.\n"
-  exit 1
-}
+root="$(cd "$(dirname "${BASH_SOURCE[0]:-$PWD}")" 2>/dev/null 1>&2 && pwd)"
+readonly root
+# shellcheck source=/dev/null
+source "$root/helpers.sh"
+# shellcheck source=/dev/null
+# source "$root/mdns.sh"
+
+helpers::dir::writable /tmp
 
 KIBANA_HOST="${KIBANA_HOST:-}"
 KIBANA_USERNAME="${KIBANA_USERNAME:-}"
