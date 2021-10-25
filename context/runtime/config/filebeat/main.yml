@@ -9,7 +9,7 @@ processors:
 
 output:
   elasticsearch:
-    hosts: '${ELASTICSEARCH_HOSTS:https://elastic.local:4443}'
+    hosts: '${ELASTICSEARCH_HOSTS:https://elastic.local:443}'
     username: '${ELASTICSEARCH_USERNAME:}'
     password: '${ELASTICSEARCH_PASSWORD:}'
 #    ssl:

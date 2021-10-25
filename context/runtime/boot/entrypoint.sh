@@ -6,9 +6,11 @@ readonly root
 # shellcheck source=/dev/null
 source "$root/helpers.sh"
 # shellcheck source=/dev/null
-# source "$root/mdns.sh"
+source "$root/mdns.sh"
 
 helpers::dir::writable /tmp
+
+[ "${MDNS_NSS_ENABLED:-}" != true ] || mdns::resolver::start
 
 KIBANA_HOST="${KIBANA_HOST:-}"
 KIBANA_USERNAME="${KIBANA_USERNAME:-}"
@@ -19,7 +21,7 @@ ELASTICSEARCH_PASSWORD="${ELASTICSEARCH_PASSWORD:-}"
 
 # XXX hook up TLS client here.
 
-LOG_LEVEL="$(printf "%s" "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')"
+LOG_LEVEL="$(printf "%s" "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]' | sed -E 's/^(warn)$/warning/')"
 
 # Configure command line arguments
 # XXX it's unclear why most logs go to stdout naturally, while SOME (duplicate, apparently) go to path.logs - either way...
