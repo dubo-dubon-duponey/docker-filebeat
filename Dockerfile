@@ -1,24 +1,30 @@
 ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
-ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-11-01@sha256:23e78693390afaf959f940de6d5f9e75554979d84238503448188a7f30f34a7d
-ARG           FROM_IMAGE_AUDITOR=base:auditor-bullseye-2021-11-01@sha256:965d2e581c2b824bc03853d7b736c6b8e556e519af2cceb30c39c77ee0178404
-ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-11-01@sha256:c29f582f211999ba573b8010cdf623e695cc0570d2de6c980434269357a3f8ef
-ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-11-01@sha256:8ee6c2243bacfb2ec1a0010a9b1bf41209330ae940c6f88fee9c9e99f9cb705d
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2022-04-01@sha256:d73bb6ea84152c42e314bc9bff6388d0df6d01e277bd238ee0e6f8ade721856d
+ARG           FROM_IMAGE_AUDITOR=base:auditor-bullseye-2022-04-01@sha256:ca513bf0219f654afeb2d24aae233fef99cbcb01991aea64060f3414ac792b3f
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2022-04-01@sha256:6456b76dd2eedf34b4c5c997f9ad92901220dfdd405ec63419d0b54b6d85a777
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2022-04-01@sha256:323f3e36da17d8638a07a656e2f17d5ee4dc2b17dfea7e2da36e1b2174cc5f18
 
 FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 #######################
 # Fetcher
 #######################
-FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-main
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_BUILDER                                              AS fetcher-filebeat
 
 ARG           GIT_REPO=github.com/elastic/beats
 #ARG           GIT_VERSION=7.13.4
 #ARG           GIT_COMMIT=1907c246c8b0d23ae4027699c44bf3fbef57f4a4
-ARG           GIT_VERSION=v7.14.0
+#ARG           GIT_VERSION=v7.14.0
 # XXX unfortunately busted and has been for some time, because of some BS around a dep (kardianos/service)
-#ARG           GIT_COMMIT=e127fc31fc6c00fdf8649808f9421d8f8c28b5db
-ARG           GIT_COMMIT=70cab1df99e3f05397e3ed69ba47608dc103a985
+#XXXXARG           GIT_COMMIT=e127fc31fc6c00fdf8649808f9421d8f8c28b5db
+#ARG           GIT_COMMIT=70cab1df99e3f05397e3ed69ba47608dc103a985
+
+ARG           GIT_VERSION=v7.17.2
+ARG           GIT_COMMIT=0e693268830769a77c9128b670888590f4d4f26d
+
+#ARG           GIT_VERSION=v8.1.2
+#ARG           GIT_COMMIT=f35c1c87a80571070e60753e9f007255ebc8655b
 
 ENV           WITH_BUILD_SOURCE=./filebeat
 ENV           WITH_BUILD_OUTPUT=filebeat
@@ -26,7 +32,11 @@ ENV           WITH_BUILD_OUTPUT=filebeat
 ENV           WITH_LDFLAGS="-X github.com/elastic/beats/libbeat/version.buildTime=$DATE_CREATED -X github.com/elastic/beats/libbeat/version.commit=$GIT_COMMIT"
 # XXX CGO / avahi?
 
-RUN           git clone --recurse-submodules git://"$GIT_REPO" .; git checkout "$GIT_COMMIT"
+# Damnit docker distribution
+# XXX giving up on trying to make it work - too many module simply break, and since people do not vendor anymore, it's all about relying on google goproxy infra
+#RUN           echo "exclude github.com/docker/distribution v2.8.0+incompatible" >> go.mod
+
+RUN           git clone --recurse-submodules https://"$GIT_REPO" .; git checkout "$GIT_COMMIT"
 RUN           --mount=type=secret,id=CA \
               --mount=type=secret,id=NETRC \
               [[ "${GOFLAGS:-}" == *-mod=vendor* ]] || go mod download
@@ -43,13 +53,15 @@ RUN           --mount=type=secret,uid=100,id=CA \
 
 # Install mage - requires network as this stuff does go get
 # hadolint ignore=DL3003,SC2164
-RUN           cd filebeat; make update; command mage || { echo mage build fail; exit 1; }
+RUN           --mount=type=secret,id=CA \
+              --mount=type=secret,id=NETRC \
+              cd filebeat; make update; command mage || { echo mage build fail; exit 1; }
 
 #######################
 # Main builder
 #######################
 # XXX --platform=$BUILDPLATFORM  not a x-build yet
-FROM          fetcher-main                                                                                              AS builder-main
+FROM          fetcher-filebeat                                                                                              AS builder-main
 
 ARG           TARGETARCH
 ARG           TARGETOS
